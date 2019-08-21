@@ -38,6 +38,7 @@ class GAM:
         self.subpopulations = None
         self.subpopulation_sizes = None
         self.explanations = None
+        self.distance_matrix = None
 
     def _read_local(self):
         """
@@ -75,7 +76,8 @@ class GAM:
 
     def _cluster(self, distance_function=spearman_squared_distance, max_iter=1000, tol=0.0001):
         """Calls kmedoids module to group attributions"""
-        clusters = KMedoids(self.k, dist_func=distance_function, max_iter=max_iter, tol=tol)
+        clusters = KMedoids(self.k, self.distance_matrix, dist_func=distance_function,
+                max_iter=max_iter, tol=tol)
         clusters.fit(self.normalized_attributions, verbose=False)
 
         self.subpopulations = clusters.members
@@ -114,42 +116,67 @@ class GAM:
             explanations.append(list(zip(self.feature_labels, explanation_weights)))
         return explanations
 
-    def get_optimal_clustering(self, cluster_list=[2, 3, 4, 5, 6]):
+    def get_optimal_clustering(self, cluster_list=[2, 3, 4, 5]):
         from sklearn.metrics import silhouette_score  # silhouette_samples,
         from gam.spearman_distance import pairwise_spearman_distance_matrix
+        from gam.spearman_distance import spearman_vectorized
         from gam.kendall_tau_distance import pairwise_distance_matrix
+        from gam.kendall_tau_distance import mergeSortDistance
+        from sklearn.metrics import pairwise_distances_chunked
+
+
+        #self.generate()
+        self._read_local()
+        self.normalized_attributions = GAM.normalize(self.attributions)
+        #self._cluster()
+        print('starting distance matrix calculation')
+
+        # TODO - save GAM clusters to pkl file - saves recomputing
+        if self.distance == 'spearman':
+            D = pairwise_spearman_distance_matrix(self.normalized_attributions)
+            dist_func =  spearman_vectorized
+        elif self.distance == 'kendall_tau':
+            #D = pairwise_distance_matrix(self.normalized_attributions)
+            gen = pairwise_distances_chunked(self.normalized_attributions, 
+                    metric=mergeSortDistance, n_jobs=-1)
+            D = next(gen)
+            dist_func = mergeSortDistance
+        self.distance_matrix = D
+        print('distance matrix calculated - and assigned to self')
+        print( 'Really assigned? ', hasattr(self, 'distance_matrix'))
+
+        best = self
+        best.silhouette_avg = -1e5
 
         silhList = []
         for nCluster in cluster_list:
             self.k = nCluster
-            self.generate()
-
-            # TODO - save GAM clusters to pkl file - saves recomputing
-            if self.distance == 'spearman':
-                D = pairwise_spearman_distance_matrix(self.normalized_attributions)
-            elif self.distance == 'kendall_tau':
-                D = pairwise_distance_matrix(self.normalized_attributions)
+            self._cluster(distance_function=dist_func)
 
             silhouette_avg = silhouette_score(D, self.subpopulations, metric='precomputed')
             silhList.append(silhouette_avg)
 
             print(nCluster, silhouette_avg)
 
+            if silhouette_avg > best.silhouette_avg:
+                best = self
+                best.silhouette_avg = silhouette_avg
+
         sortedSilh, sortedCluster = zip(*sorted(zip(silhList, cluster_list)))
 
         print('Sorted silh scores  - ', sortedSilh)
         print('Sorted cluster vals - ', sortedCluster)
 
-        # regenerate global attributions now that we've found the 'optimal' number of clusters
-        nCluster = sortedCluster[0]  # 4  # ??? for RF # ??? for DNN, and 4 for CNN
-#        g = gam.GAM(attributions_path=sampledAttributionsFile, distance="spearman", k=nCluster)
-#        g.generate()
+        # return our best result
+        nCluster = sortedCluster[-1]  # 4  # ??? for RF # ??? for DNN, and 4 for CNN
+#        self = best
+        # track these on for convenience of plotting results
+        self.silhouette_list = silhList
+        self.cluster_list = cluster_list
         self.k = nCluster
         self.generate()
 
-        # save to pickle file
-#        with open(pickleFile, 'wb') as f:
-#            pickle.dump(g, f)
+        print('Head check on saving best - ', self.k, nCluster)
 
         return
 

@@ -6,6 +6,7 @@ http://www.plhyu.com/administrator/components/com_jresearch/files/publications/M
 TODO:
 - add tests
 """
+import numpy as np
 
 
 def spearman_squared_distance(r_1, r_2):
@@ -31,6 +32,15 @@ def spearman_squared_distance(r_1, r_2):
 
     return distance
 
+def spearman_vectorized(r_1, r_2):
+    # vectorized implementation
+    r_1 = np.asarray(r_1)
+    r_2 = np.asarray(r_2)
+    order_penalty = np.square( r_1 - r_2 )
+    weight = 100*100 * np.multiply( r_1, r_2)
+    distance = np.sum(np.multiply(order_penalty, weight))
+    return distance
+
 
 def pairwise_spearman_distance_matrix(rankings):
     """
@@ -41,11 +51,19 @@ def pairwise_spearman_distance_matrix(rankings):
 
     Returns: matrix (list of lists) containing pairwise distances
     """
-    D = []
-    for r_1 in rankings:
-        row = []
-        for r_2 in rankings:
-            distance = spearman_squared_distance(r_1, r_2)
-            row.append(distance)
-        D.append(row)
+#    D = []
+#    for r_1 in rankings:
+#        row = []
+#        for r_2 in rankings:
+#            distance = spearman_squared_distance(r_1, r_2)
+#            row.append(distance)
+#        D.append(row)
+
+
+    from sklearn.metrics import pairwise_distances_chunked
+    print('Starting spearman distances...')
+    gen = pairwise_distances_chunked(rankings, metric=spearman_vectorized, n_jobs = -1)
+    D = next(gen)
+    print('Ended spearman distances...', D.shape)
+
     return D

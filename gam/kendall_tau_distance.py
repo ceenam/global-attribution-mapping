@@ -155,14 +155,21 @@ def pairwise_distance_matrix(rankings):
     Returns: matrix (list of lists) containing pairwise distances
     """
     D = []
-    for r_1 in rankings:
-        row = []
-        for r_2 in rankings:
-            # original method ~ O(n^2)
-            # distance = ktau_weighted_distance(r_1, r_2)
+#    for r_1 in rankings:
+#        row = []
+#        for r_2 in rankings:
+#            # original method ~ O(n^2)
+#            # distance = ktau_weighted_distance(r_1, r_2)
+#
+#            # updated method - using merge sort ~ O(nlogn)
+#            distance = mergeSortDistance(r_1, r_2)
+#            row.append(distance)
+#        D.append(row)
 
-            # updated method - using merge sort ~ O(nlogn)
-            distance = mergeSortDistance(r_1, r_2)
-            row.append(distance)
-        D.append(row)
+    from sklearn.metrics import pairwise_distances_chunked
+    print('Starting spearman distances...')
+    gen = pairwise_distances_chunked(rankings, metric=spearman_vectorized, n_jobs = -1)
+    D = next(gen)
+    print('Ended spearman distances...', D.shape)
+  
     return D

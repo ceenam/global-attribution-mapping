@@ -26,17 +26,32 @@ def _get_distance(data1, data2):
     return np.sqrt(np.sum((data1 - data2)**2))
 
 
-def _get_cost(X, centers_id, dist_func):
+def _get_distance_matrix(X, Y, dist_func):
+    from sklearn.metrics import pairwise_distances_chunked
+    #print('Starting cluster distances...')
+    gen = pairwise_distances_chunked(X, Y, metric=dist_func, n_jobs = -1)
+    dist_mat = next(gen)
+    #print('Ended cluster distances...', dist_mat.shape)
+    return dist_mat
+
+def _get_cost(self, X, centers_id, dist_func):
     """Return total cost and cost of each cluster"""
-    dist_mat = np.zeros((len(X), len(centers_id)))
-    # compute distance matrix
-    for j in range(len(centers_id)):
-        center = X[centers_id[j], :]
-        for i in range(len(X)):
-            if i == centers_id[j]:
-                dist_mat[i, j] = 0.
-            else:
-                dist_mat[i, j] = dist_func(X[i, :], center)
+#    dist_mat = np.zeros((len(X), len(centers_id)))
+#    # compute distance matrix
+#    for j in range(len(centers_id)):
+#        center = X[centers_id[j], :]
+#        for i in range(len(X)):
+#            if i == centers_id[j]:
+#                dist_mat[i, j] = 0.
+#            else:
+#                dist_mat[i, j] = dist_func(X[i, :], center)
+    if self.distance_matrix is not None:
+        #print('hasattrt - accelerating...')
+        dist_mat = self.distance_matrix[:,centers_id]
+    else:
+        centers = X[centers_id, :]
+        dist_mat = _get_distance_matrix(X, centers, dist_func)
+
 
     mask = np.argmin(dist_mat, axis=1)
     members = np.zeros(len(X))
@@ -74,7 +89,7 @@ class KMedoids:
         predict(X): predict cluster id given a test dataset.
     """
 
-    def __init__(self, n_clusters, dist_func=_get_distance, max_iter=1000, tol=0.0001):
+    def __init__(self, n_clusters, distance_matrix, dist_func=_get_distance, max_iter=1000, tol=0.0001):
         self.n_clusters = n_clusters
         self.dist_func = dist_func
         self.max_iter = max_iter
@@ -82,6 +97,7 @@ class KMedoids:
 
         self.centers = None
         self.members = None
+        self.distance_matrix = distance_matrix
 
     def fit(self, X, plotit=False, verbose=True):
         """
@@ -118,7 +134,7 @@ class KMedoids:
         if verbose:
             print('Initial centers are ', init_ids)
         centers = init_ids
-        members, costs, tot_cost, dist_mat = _get_cost(X, init_ids, dist_func)
+        members, costs, tot_cost, dist_mat = _get_cost(self, X, init_ids, dist_func)
         cc, swaped = 0, True
         print('Max Iterations: ', max_iter)
         while True:
@@ -128,7 +144,7 @@ class KMedoids:
                     for j in range(len(centers)):
                         centers_ = deepcopy(centers)
                         centers_[j] = i
-                        members_, costs_, tot_cost_, dist_mat_ = _get_cost(
+                        members_, costs_, tot_cost_, dist_mat_ = _get_cost( self, 
                             X, centers_, dist_func)
                         if tot_cost_-tot_cost < tol:
                             members, costs, tot_cost, dist_mat = members_, costs_, tot_cost_, dist_mat_
