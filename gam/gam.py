@@ -6,12 +6,12 @@ TODO:
 - expand to use other distance metrics
 """
 
-import math
 import csv
+import math
 from collections import Counter
 
-import numpy as np
 import matplotlib.pylab as plt
+import numpy as np
 
 from gam.clustering import KMedoids
 from gam.spearman_distance import spearman_squared_distance
@@ -26,7 +26,9 @@ class GAM:
         k (int): number of subpopulations to surface
     """
 
-    def __init__(self, attributions_path="local_attributions.csv", distance="spearman", k=2):
+    def __init__(
+        self, attributions_path="local_attributions.csv", distance="spearman", k=2
+    ):
         self.attributions_path = attributions_path
         self.distance = distance
         self.k = k
@@ -50,10 +52,8 @@ class GAM:
         """
 
         self.attributions = np.genfromtxt(
-            self.attributions_path,
-            dtype=float,
-            delimiter=',',
-            skip_header=1)
+            self.attributions_path, dtype=float, delimiter=",", skip_header=1
+        )
 
         with open(self.attributions_path) as attribution_file:
             self.feature_labels = next(csv.reader(attribution_file))
@@ -74,10 +74,17 @@ class GAM:
 
         return np.abs(attributions) / total
 
-    def _cluster(self, distance_function=spearman_squared_distance, max_iter=1000, tol=0.0001):
+    def _cluster(
+        self, distance_function=spearman_squared_distance, max_iter=1000, tol=0.0001
+    ):
         """Calls kmedoids module to group attributions"""
-        clusters = KMedoids(self.k, self.distance_matrix, dist_func=distance_function,
-                max_iter=max_iter, tol=tol)
+        clusters = KMedoids(
+            self.k,
+            self.distance_matrix,
+            dist_func=distance_function,
+            max_iter=max_iter,
+            tol=tol,
+        )
         clusters.fit(self.normalized_attributions, verbose=False)
 
         self.subpopulations = clusters.members
@@ -124,26 +131,26 @@ class GAM:
         from gam.kendall_tau_distance import mergeSortDistance
         from sklearn.metrics import pairwise_distances_chunked
 
-
-        #self.generate()
+        # self.generate()
         self._read_local()
         self.normalized_attributions = GAM.normalize(self.attributions)
-        #self._cluster()
-        print('starting distance matrix calculation')
+        # self._cluster()
+        print("starting distance matrix calculation")
 
         # TODO - save GAM clusters to pkl file - saves recomputing
-        if self.distance == 'spearman':
+        if self.distance == "spearman":
             D = pairwise_spearman_distance_matrix(self.normalized_attributions)
-            dist_func =  spearman_vectorized
-        elif self.distance == 'kendall_tau':
-            #D = pairwise_distance_matrix(self.normalized_attributions)
-            gen = pairwise_distances_chunked(self.normalized_attributions, 
-                    metric=mergeSortDistance, n_jobs=-1)
+            dist_func = spearman_vectorized
+        elif self.distance == "kendall_tau":
+            # D = pairwise_distance_matrix(self.normalized_attributions)
+            gen = pairwise_distances_chunked(
+                self.normalized_attributions, metric=mergeSortDistance, n_jobs=-1
+            )
             D = next(gen)
             dist_func = mergeSortDistance
         self.distance_matrix = D
-        print('distance matrix calculated - and assigned to self')
-        print( 'Really assigned? ', hasattr(self, 'distance_matrix'))
+        print("distance matrix calculated - and assigned to self")
+        print("Really assigned? ", hasattr(self, "distance_matrix"))
 
         best = self
         best.silhouette_avg = -1e5
@@ -153,7 +160,9 @@ class GAM:
             self.k = nCluster
             self._cluster(distance_function=dist_func)
 
-            silhouette_avg = silhouette_score(D, self.subpopulations, metric='precomputed')
+            silhouette_avg = silhouette_score(
+                D, self.subpopulations, metric="precomputed"
+            )
             silhList.append(silhouette_avg)
 
             print(nCluster, silhouette_avg)
@@ -164,19 +173,19 @@ class GAM:
 
         sortedSilh, sortedCluster = zip(*sorted(zip(silhList, cluster_list)))
 
-        print('Sorted silh scores  - ', sortedSilh)
-        print('Sorted cluster vals - ', sortedCluster)
+        print("Sorted silh scores  - ", sortedSilh)
+        print("Sorted cluster vals - ", sortedCluster)
 
         # return our best result
         nCluster = sortedCluster[-1]  # 4  # ??? for RF # ??? for DNN, and 4 for CNN
-#        self = best
+        #        self = best
         # track these on for convenience of plotting results
         self.silhouette_list = silhList
         self.cluster_list = cluster_list
         self.k = nCluster
         self.generate()
 
-        print('Head check on saving best - ', self.k, nCluster)
+        print("Head check on saving best - ", self.k, nCluster)
 
         return
 
@@ -189,7 +198,7 @@ class GAM:
             output_path_base: path to store plots
             display: option to display plot after generation, bool
         """
-        if not hasattr(self, 'explanations'):
+        if not hasattr(self, "explanations"):
             self.generate()
 
         fig_x, fig_y = 5, num_features
@@ -197,17 +206,19 @@ class GAM:
         for idx, explanations in enumerate(self.explanations):
             _, axs = plt.subplots(1, 1, figsize=(fig_x, fig_y), sharey=True)
 
-            explanations_sorted = sorted(explanations, key=lambda x: x[-1], reverse=False)[-num_features:]
+            explanations_sorted = sorted(
+                explanations, key=lambda x: x[-1], reverse=False
+            )[-num_features:]
             axs.barh(*zip(*explanations_sorted))
             axs.set_xlim([0, 1])
-            axs.set_title('Explanation {}'.format(idx + 1), size=10)
-            axs.set_xlabel('Importance', size=10)
+            axs.set_title("Explanation {}".format(idx + 1), size=10)
+            axs.set_xlabel("Importance", size=10)
 
             plt.tight_layout()
             if output_path_base:
-                output_path = '{}_explanation_{}.png'.format(output_path_base, idx + 1)
+                output_path = "{}_explanation_{}.png".format(output_path_base, idx + 1)
                 # bbox_inches option prevents labels cutting off
-                plt.savefig(output_path, bbox_inches='tight')
+                plt.savefig(output_path, bbox_inches="tight")
 
             if display:
                 plt.show()

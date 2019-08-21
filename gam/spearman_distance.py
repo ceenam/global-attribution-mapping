@@ -26,18 +26,19 @@ def spearman_squared_distance(r_1, r_2):
     distance = 0
 
     for r_1_value, r_2_value in zip(r_1, r_2):
-        order_penalty = (r_1_value - r_2_value)**2
+        order_penalty = (r_1_value - r_2_value) ** 2
         weight = r_1_value * r_2_value * 100 * 100
         distance += weight * order_penalty
 
     return distance
 
+
 def spearman_vectorized(r_1, r_2):
     # vectorized implementation
     r_1 = np.asarray(r_1)
     r_2 = np.asarray(r_2)
-    order_penalty = np.square( r_1 - r_2 )
-    weight = 100*100 * np.multiply( r_1, r_2)
+    order_penalty = np.square(r_1 - r_2)
+    weight = 100 * 100 * np.multiply(r_1, r_2)
     distance = np.sum(np.multiply(order_penalty, weight))
     return distance
 
@@ -51,19 +52,19 @@ def pairwise_spearman_distance_matrix(rankings):
 
     Returns: matrix (list of lists) containing pairwise distances
     """
-#    D = []
-#    for r_1 in rankings:
-#        row = []
-#        for r_2 in rankings:
-#            distance = spearman_squared_distance(r_1, r_2)
-#            row.append(distance)
-#        D.append(row)
-
+    #    D = []
+    #    for r_1 in rankings:
+    #        row = []
+    #        for r_2 in rankings:
+    #            distance = spearman_squared_distance(r_1, r_2)
+    #            row.append(distance)
+    #        D.append(row)
 
     from sklearn.metrics import pairwise_distances_chunked
-    print('Starting spearman distances...')
-    gen = pairwise_distances_chunked(rankings, metric=spearman_vectorized, n_jobs = -1)
+
+    print("Starting spearman distances...")
+    gen = pairwise_distances_chunked(rankings, metric=spearman_vectorized, n_jobs=-1)
     D = next(gen)
-    print('Ended spearman distances...', D.shape)
+    print("Ended spearman distances...", D.shape)
 
     return D

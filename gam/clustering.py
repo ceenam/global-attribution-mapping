@@ -7,8 +7,8 @@ TODO:
 """
 from copy import deepcopy
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def _get_init_centers(n_clusters, n_samples):
@@ -23,35 +23,36 @@ def _get_init_centers(n_clusters, n_samples):
 
 def _get_distance(data1, data2):
     """example distance function"""
-    return np.sqrt(np.sum((data1 - data2)**2))
+    return np.sqrt(np.sum((data1 - data2) ** 2))
 
 
 def _get_distance_matrix(X, Y, dist_func):
     from sklearn.metrics import pairwise_distances_chunked
-    #print('Starting cluster distances...')
-    gen = pairwise_distances_chunked(X, Y, metric=dist_func, n_jobs = -1)
+
+    # print('Starting cluster distances...')
+    gen = pairwise_distances_chunked(X, Y, metric=dist_func, n_jobs=-1)
     dist_mat = next(gen)
-    #print('Ended cluster distances...', dist_mat.shape)
+    # print('Ended cluster distances...', dist_mat.shape)
     return dist_mat
+
 
 def _get_cost(self, X, centers_id, dist_func):
     """Return total cost and cost of each cluster"""
-#    dist_mat = np.zeros((len(X), len(centers_id)))
-#    # compute distance matrix
-#    for j in range(len(centers_id)):
-#        center = X[centers_id[j], :]
-#        for i in range(len(X)):
-#            if i == centers_id[j]:
-#                dist_mat[i, j] = 0.
-#            else:
-#                dist_mat[i, j] = dist_func(X[i, :], center)
+    #    dist_mat = np.zeros((len(X), len(centers_id)))
+    #    # compute distance matrix
+    #    for j in range(len(centers_id)):
+    #        center = X[centers_id[j], :]
+    #        for i in range(len(X)):
+    #            if i == centers_id[j]:
+    #                dist_mat[i, j] = 0.
+    #            else:
+    #                dist_mat[i, j] = dist_func(X[i, :], center)
     if self.distance_matrix is not None:
-        #print('hasattrt - accelerating...')
-        dist_mat = self.distance_matrix[:,centers_id]
+        # print('hasattrt - accelerating...')
+        dist_mat = self.distance_matrix[:, centers_id]
     else:
         centers = X[centers_id, :]
         dist_mat = _get_distance_matrix(X, centers, dist_func)
-
 
     mask = np.argmin(dist_mat, axis=1)
     members = np.zeros(len(X))
@@ -89,7 +90,14 @@ class KMedoids:
         predict(X): predict cluster id given a test dataset.
     """
 
-    def __init__(self, n_clusters, distance_matrix, dist_func=_get_distance, max_iter=1000, tol=0.0001):
+    def __init__(
+        self,
+        n_clusters,
+        distance_matrix,
+        dist_func=_get_distance,
+        max_iter=1000,
+        tol=0.0001,
+    ):
         self.n_clusters = n_clusters
         self.dist_func = dist_func
         self.max_iter = max_iter
@@ -104,7 +112,13 @@ class KMedoids:
         Fits kmedoids with the option for plotting
         """
         centers, members, _, _, _ = self.kmedoids_run(
-            X, self.n_clusters, self.dist_func, max_iter=self.max_iter, tol=self.tol, verbose=verbose)
+            X,
+            self.n_clusters,
+            self.dist_func,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            verbose=verbose,
+        )
 
         # set centers as instance attributes
         self.centers = centers
@@ -112,18 +126,25 @@ class KMedoids:
 
         if plotit:
             _, ax = plt.subplots(1, 1)
-            colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+            colors = ["b", "g", "r", "c", "m", "y", "k"]
             if self.n_clusters > len(colors):
-                raise ValueError('we need more colors')
+                raise ValueError("we need more colors")
 
             for i in range(len(centers)):
                 X_c = X[members == i, :]
                 ax.scatter(X_c[:, 0], X_c[:, 1], c=colors[i], alpha=0.5, s=30)
-                ax.scatter(X[centers[i], 0], X[centers[i], 1],
-                           c=colors[i], alpha=1., s=250, marker='*')
+                ax.scatter(
+                    X[centers[i], 0],
+                    X[centers[i], 1],
+                    c=colors[i],
+                    alpha=1.0,
+                    s=250,
+                    marker="*",
+                )
 
-
-    def kmedoids_run(self, X, n_clusters, dist_func, max_iter=1000, tol=0.001, verbose=True):
+    def kmedoids_run(
+        self, X, n_clusters, dist_func, max_iter=1000, tol=0.001, verbose=True
+    ):
         """Runs kmedoids algorithm with custom dist_func.
 
         Returns: centers, members, costs, tot_cost, dist_mat
@@ -132,11 +153,11 @@ class KMedoids:
         n_samples, _ = X.shape
         init_ids = _get_init_centers(n_clusters, n_samples)
         if verbose:
-            print('Initial centers are ', init_ids)
+            print("Initial centers are ", init_ids)
         centers = init_ids
         members, costs, tot_cost, dist_mat = _get_cost(self, X, init_ids, dist_func)
         cc, swaped = 0, True
-        print('Max Iterations: ', max_iter)
+        print("Max Iterations: ", max_iter)
         while True:
             swaped = False
             for i in range(n_samples):
@@ -144,26 +165,32 @@ class KMedoids:
                     for j in range(len(centers)):
                         centers_ = deepcopy(centers)
                         centers_[j] = i
-                        members_, costs_, tot_cost_, dist_mat_ = _get_cost( self, 
-                            X, centers_, dist_func)
-                        if tot_cost_-tot_cost < tol:
-                            members, costs, tot_cost, dist_mat = members_, costs_, tot_cost_, dist_mat_
+                        members_, costs_, tot_cost_, dist_mat_ = _get_cost(
+                            self, X, centers_, dist_func
+                        )
+                        if tot_cost_ - tot_cost < tol:
+                            members, costs, tot_cost, dist_mat = (
+                                members_,
+                                costs_,
+                                tot_cost_,
+                                dist_mat_,
+                            )
                             centers = centers_
                             swaped = True
                             if verbose:
-                                print('Change centers to ', centers)
+                                print("Change centers to ", centers)
                             self.centers = centers
                             self.members = members
             if cc > max_iter:
                 if verbose:
-                    print('End Searching by reaching maximum iteration', max_iter)
+                    print("End Searching by reaching maximum iteration", max_iter)
                 break
             if not swaped:
                 if verbose:
-                    print('End Searching by no swaps')
+                    print("End Searching by no swaps")
                 break
             cc += 1
-            print('Starting Iteration: ', cc)
+            print("Starting Iteration: ", cc)
         return centers, members, costs, tot_cost, dist_mat
 
     def predict(self, X):
